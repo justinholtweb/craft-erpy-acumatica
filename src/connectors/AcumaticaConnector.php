@@ -38,6 +38,14 @@ use justinholtweb\erpy\models\canonical\ErpStock;
  * And every field in a contract-based payload is an object with a `value` inside it. Reading
  * `$row['InventoryID']` gives you an array, not a string, which is the first thing that catches
  * everybody writing against this API.
+ *
+ * Inventory is the one pull without a delta. The inventory summary inquiry it reads has no
+ * modified date to filter on, and `StockItem.LastModifiedDateTime` does not move when stock does
+ * — a shipment or a receipt changes the warehouse quantity, not the item, so filtering on it would
+ * silently miss stock movements. Acumatica's `InventoryQuantityAvailable` inquiry takes a
+ * `LastModifiedDateTime` parameter, but it is a per-item PUT inquiry documented on later Default
+ * endpoints than the 20.200.001 this connector defaults to. So every inventory run reads the whole
+ * warehouse, and Erpy's content hash makes each unchanged row a comparison, not a save.
  */
 class AcumaticaConnector extends Connector
 {
@@ -71,7 +79,8 @@ class AcumaticaConnector extends Connector
         return Capabilities::make()
             ->supports(Entity::CUSTOMER, Direction::PULL, delta: true, pageSize: 200)
             ->supports(Entity::PRODUCT, Direction::PULL, delta: true, pageSize: 200)
-            ->supports(Entity::INVENTORY, Direction::PULL, delta: true, pageSize: 500)
+            // No modified date on the inventory summary inquiry — see the class docblock.
+            ->supports(Entity::INVENTORY, Direction::PULL, delta: false, pageSize: 500)
             ->supports(Entity::ORDER, Direction::PUSH)
             ->supports(Entity::ORDER_STATUS, Direction::PULL, delta: true, pageSize: 200)
             ->supports(Entity::SHIPMENT, Direction::PULL, delta: true, pageSize: 200)

@@ -13,6 +13,7 @@
         "integration"
     ],
     "license": "proprietary",
+    "homepage": "https://justinholt.com/plugins/craft-erpy",
     "authors": [
         {
             "name": "Justin Holt",
@@ -20,7 +21,10 @@
         }
     ],
     "support": {
-        "email": "justin@justinholt.com"
+        "email": "justin@justinholt.com",
+        "docs": "https://justinholt.com/plugins/craft-erpy/docs/acumatica",
+        "source": "https://github.com/justinholtweb/craft-erpy-acumatica",
+        "issues": "https://github.com/justinholtweb/craft-erpy-acumatica/issues"
     },
     "minimum-stability": "stable",
     "prefer-stable": true,
@@ -45,7 +49,7 @@
         "handle": "erpy-acumatica",
         "developer": "Justin Holt",
         "developerUrl": "https://justinholt.com",
-        "documentationUrl": "https://github.com/justinholtweb/craft-erpy-acumatica/blob/main/README.md",
+        "documentationUrl": "https://justinholt.com/plugins/craft-erpy/docs/acumatica",
         "changelogUrl": "https://raw.githubusercontent.com/justinholtweb/craft-erpy-acumatica/main/CHANGELOG.md",
         "class": "justinholtweb\\erpyacumatica\\Plugin"
     }
