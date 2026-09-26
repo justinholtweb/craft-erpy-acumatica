@@ -403,7 +403,7 @@ class AcumaticaConnector extends Connector
         // Acumatica's PUT on a top-level entity is an upsert keyed on the entity's natural key.
         // `CustomerOrder` holds the Commerce order number, so asking first is how a retry avoids
         // becoming a second sales order.
-        $existing = $this->findOrder($document->orderNumber);
+        $existing = $this->findOrder($this->customerOrder($document->orderNumber));
 
         if ($existing !== null && $remoteId === null) {
             return PushResult::alreadyExists(
@@ -428,7 +428,7 @@ class AcumaticaConnector extends Connector
         $payload = array_filter([
             'OrderType' => $this->wrap((string)$this->setting('orderType', 'SO')),
             'CustomerID' => $this->wrap($document->customerCode),
-            'CustomerOrder' => $this->wrap(mb_substr($document->orderNumber, 0, 50)),
+            'CustomerOrder' => $this->wrap($this->customerOrder($document->orderNumber)),
             'Date' => $this->wrap(($document->orderedAt ?? new DateTime())->format('Y-m-d')),
             'Description' => $document->customerNote ? $this->wrap(mb_substr($document->customerNote, 0, 250)) : null,
             'CurrencyID' => $document->currency ? $this->wrap($document->currency) : null,
@@ -483,16 +483,31 @@ class AcumaticaConnector extends Connector
         ], static fn($value) => $value !== null);
     }
 
-    private function findOrder(string $orderNumber): ?array
+    /**
+     * The value written to `CustomerOrder`, looked up by a retry and compared against what comes
+     * back: the Commerce number, cut to the field's 50 characters. One function, so the three can
+     * never disagree.
+     */
+    private function customerOrder(string $orderNumber): string
     {
-        if ($orderNumber === '') {
+        return mb_substr($orderNumber, 0, 50);
+    }
+
+    /**
+     * The sales order already carrying this `CustomerOrder`, or null. Every returned row is
+     * compared as well as filtered for: an endpoint that ignores or mis-applies `$filter` must not
+     * turn every order after the first into a duplicate of whatever it returned.
+     */
+    private function findOrder(string $customerOrder): ?array
+    {
+        if ($customerOrder === '') {
             return null;
         }
 
         $response = $this->transport()->get('SalesOrder', [
-            '$filter' => "CustomerOrder eq '" . $this->escape($orderNumber) . "'",
+            '$filter' => "CustomerOrder eq '" . $this->escape($customerOrder) . "'",
             '$select' => 'OrderNbr,OrderType,CustomerOrder',
-            '$top' => 1,
+            '$top' => 20,
         ]);
 
         if (!$response->ok()) {
@@ -501,7 +516,13 @@ class AcumaticaConnector extends Connector
 
         $rows = $response->json_();
 
-        return is_array($rows[0] ?? null) ? $rows[0] : null;
+        foreach (is_array($rows) ? $rows : [] as $row) {
+            if (is_array($row) && (string)$this->v($row, 'CustomerOrder') === $customerOrder) {
+                return $row;
+            }
+        }
+
+        return null;
     }
 
     // ---------------------------------------------------------------------------------------
